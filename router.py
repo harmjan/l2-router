@@ -12,31 +12,21 @@ class Router(app_manager.RyuApp):
     def __init__(self, *args, **kwargs):
         super(Router,self).__init__(self,*args,**kwargs)
 
-        self.switches = {}
-
     @set_ev_cls(event.EventSwitchEnter)
     def add_switch(self,ev):
-        self.switches[ev.switch.dp.id] = []
-        self.set_broadcast_tree()
+        pass
 
     @set_ev_cls(event.EventSwitchLeave)
     def delete_switch(self,ev):
-        del self.switches[ev.switch.dp.id]
-        self.set_broadcast_tree()
+        pass
 
     @set_ev_cls(event.EventLinkAdd)
     def add_link(self,ev):
-        if ev.link.src.dpid in self.switches:
-            tmp = ev.link.src.port_no, ev.link.dst.dpid, ev.link.dst.port_no
-            self.switches[ev.link.src.dpid].append(tmp)
-            self.set_broadcast_tree()
+        pass
 
     @set_ev_cls(event.EventLinkDelete)
     def delete_link(self,ev):
-        if ev.link.src.dpid in self.switches:
-            tmp = ev.link.src.port_no, ev.link.dst.dpid, ev.link.dst.port_no
-            self.switches[ev.link.src.dpid].remove(tmp)
-            self.set_broadcast_tree()
+        pass
 
     @set_ev_cls(ofp_event.EventOFPPacketIn, MAIN_DISPATCHER)
     def new_packet(self, ev):
