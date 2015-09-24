@@ -105,7 +105,7 @@ class Broadcast(app_manager.RyuApp):
         # Explore the graph breadth first from the initial datapath
         while len(explorable) != 0:
             src_dpid = explorable.pop()
-            for src_port, dst_dpid, dst_port in self.switches[dpid]:
+            for src_port, dst_dpid, dst_port in self.switches[src_dpid]:
                 if dst_dpid not in reachable:
                     reachable.add(dst_dpid)
                     explorable.append(dst_dpid)
