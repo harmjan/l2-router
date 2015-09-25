@@ -33,12 +33,13 @@ class Init(app_manager.RyuApp):
         add_msg_0 = new_datapath.ofproto_parser.OFPFlowMod(
                 datapath=new_datapath,
                 table_id=0,
+                priority=0,
                 command=new_datapath.ofproto.OFPFC_ADD,
                 match=new_datapath.ofproto_parser.OFPMatch(),
                 instructions=[
                     new_datapath.ofproto_parser.OFPInstructionGotoTable(1),
                     new_datapath.ofproto_parser.OFPInstructionActions(
-                        type_=new_datapath.ofproto.OFPIT_APPLY_ACTIONS,
+                        type_=new_datapath.ofproto.OFPIT_WRITE_ACTIONS,
                         actions=[new_datapath.ofproto_parser.OFPActionGroup(group_id=0)]
                     )
                 ]
@@ -49,6 +50,7 @@ class Init(app_manager.RyuApp):
         add_msg_1 = new_datapath.ofproto_parser.OFPFlowMod(
                 datapath=new_datapath,
                 table_id=1,
+                priority=0,
                 command=new_datapath.ofproto.OFPFC_ADD,
                 match=new_datapath.ofproto_parser.OFPMatch(),
                 instructions=[
