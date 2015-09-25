@@ -84,9 +84,9 @@ class Broadcast(app_manager.RyuApp):
             tmp = ev.link.src.port_no, ev.link.dst.dpid, ev.link.dst.port_no
             self.switch_graph[ev.link.src.dpid] = filter(lambda x: x!=tmp,self.switch_graph[ev.link.src.dpid])
 
-            if ev.link.src.port_no not in self.switch_ports[ev.link.src.dpid]:
+            if ev.link.src.dpid in self.switch_ports and ev.link.src.port_no not in self.switch_ports[ev.link.src.dpid]:
                 self.switch_ports[ev.link.src.dpid].append(ev.link.src.port_no)
-            if ev.link.dst.port_no not in self.switch_ports[ev.link.dst.dpid]:
+            if ev.link.dst.dpid in self.switch_ports and ev.link.dst.port_no not in self.switch_ports[ev.link.dst.dpid]:
                 self.switch_ports[ev.link.dst.dpid].append(ev.link.dst.port_no)
 
             self.set_broadcast_tree()
