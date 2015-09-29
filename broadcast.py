@@ -47,6 +47,7 @@ class Broadcast(app_manager.RyuApp):
         if ev.switch.dp.id not in self.switch_graph:
             self.switch_graph[ev.switch.dp.id] = []
             self.switch_ports[ev.switch.dp.id] = [port.port_no for port in ev.switch.ports]
+            self.switch_ports[ev.switch.dp.id].append(ev.switch.dp.ofproto.OFPP_NORMAL)
             self.switches[ev.switch.dp.id] = ev.switch.dp
 
     @set_ev_cls(event.EventSwitchLeave)
