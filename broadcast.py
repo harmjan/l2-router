@@ -1,6 +1,7 @@
 from ryu.base import app_manager
 from ryu.controller.handler import set_ev_cls
-from ryu.ofproto import ofproto_v1_3
+from ryu.ofproto import ofproto_v1_3 as ofproto
+from ryu.ofproto import ofproto_v1_3_parser as parser
 
 from ryu.topology import event
 
@@ -12,7 +13,7 @@ class Broadcast(app_manager.RyuApp):
     the network without packets getting stuck in a loop.
     """
 
-    OFP_VERSIONS = [ofproto_v1_3.OFP_VERSION]
+    OFP_VERSIONS = [ofproto.OFP_VERSION]
 
     def __init__(self, *args, **kwargs):
         super(Broadcast,self).__init__(self,*args,**kwargs)
@@ -34,10 +35,10 @@ class Broadcast(app_manager.RyuApp):
     def add_switch(self,ev):
         print "Switch added", ev.switch.dp.id
 
-        group_msg = ev.switch.dp.ofproto_parser.OFPGroupMod(
+        group_msg = parser.OFPGroupMod(
                 datapath=ev.switch.dp,
-                command=ev.switch.dp.ofproto.OFPGC_ADD,
-                type_=ev.switch.dp.ofproto.OFPGT_ALL,
+                command=ofproto.OFPGC_ADD,
+                type_=ofproto.OFPGT_ALL,
                 group_id=0
         )
         ev.switch.dp.send_msg(group_msg)
@@ -76,6 +77,18 @@ class Broadcast(app_manager.RyuApp):
 
             self.set_broadcast_tree()
 
+        # Add the broadcast rule
+        broadcast_rule = parser.OFPFlowMod(
+                datapath=self.switches[ev.link.src.dpid],
+                table_id=1,
+                priority=10,
+                cookie=1,
+                command=ofproto.OFPFC_ADD,
+                match=parser.OFPMatch(in_port=ev.link.src.port_no),
+                instructions=[]
+        )
+        self.switches[ev.link.src.dpid].send_msg(broadcast_rule)
+
     @set_ev_cls(event.EventLinkDelete)
     def remove_link(self,ev):
         print "Link removed", ev.link.src.dpid, "=>", ev.link.dst.dpid
@@ -90,6 +103,18 @@ class Broadcast(app_manager.RyuApp):
                 self.switch_ports[ev.link.dst.dpid].append(ev.link.dst.port_no)
 
             self.set_broadcast_tree()
+
+        # Remove the broadcast rule
+        if ev.link.src.dpid in self.switches:
+            broadcast_rule = parser.OFPFlowMod(
+                    datapath=self.switches[ev.link.src.dpid],
+                    table_id=1,
+                    priority=10,
+                    command=ofproto.OFPFC_DELETE,
+                    match=parser.OFPMatch(in_port=ev.link.src.port_no),
+                    instructions=[]
+            )
+            self.switches[ev.link.src.dpid].send_msg(broadcast_rule)
 
     @set_ev_cls(event.EventPortAdd)
     def add_port(self,ev):
@@ -124,12 +149,12 @@ class Broadcast(app_manager.RyuApp):
 
         # Update the group buckets in the switches
         for dpid, dp in self.switches.items():
-            group_msg = dp.ofproto_parser.OFPGroupMod(
+            group_msg = parser.OFPGroupMod(
                     datapath=dp,
-                    command=dp.ofproto.OFPGC_MODIFY,
-                    type_=dp.ofproto.OFPGT_ALL,
+                    command=ofproto.OFPGC_MODIFY,
+                    type_=ofproto.OFPGT_ALL,
                     group_id=0,
-                    buckets=[dp.ofproto_parser.OFPBucket(actions=[dp.ofproto_parser.OFPActionOutput(port)]) for port in spanning_tree[dpid]]
+                    buckets=[parser.OFPBucket(actions=[parser.OFPActionOutput(port)]) for port in spanning_tree[dpid]]
             )
             dp.send_msg(group_msg)
 
