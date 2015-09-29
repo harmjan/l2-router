@@ -22,7 +22,6 @@ class Init(app_manager.RyuApp):
         """
         new_datapath = ev.switch.dp
 
-
         # Delete all previous flows in all tables, we can't
         # just delete all flows since the topology discovery
         # service also installs flows and runs before this

@@ -28,13 +28,14 @@ class Broadcast(app_manager.RyuApp):
         self.switch_ports = {}
 
         # A dictionary from switch dpid to switch object
-        # dpid => class Datapath)
+        # dpid => class Datapath
         self.switches = {}
 
     @set_ev_cls(event.EventSwitchEnter)
     def add_switch(self,ev):
-        print "Switch added", ev.switch.dp.id
-
+        # Make sure that the switch has a group with id 0
+        # so all the times that we edit the broadcast group
+        # there is no need to check if the group exists
         group_msg = parser.OFPGroupMod(
                 datapath=ev.switch.dp,
                 command=ofproto.OFPGC_ADD,
@@ -50,8 +51,6 @@ class Broadcast(app_manager.RyuApp):
 
     @set_ev_cls(event.EventSwitchLeave)
     def remove_switch(self,ev):
-        print "Switch removed", ev.switch.dp.id
-
         if ev.switch.dp.id in self.switch_graph:
             del self.switch_graph[ev.switch.dp.id]
             del self.switch_ports[ev.switch.dp.id]
@@ -66,8 +65,6 @@ class Broadcast(app_manager.RyuApp):
 
     @set_ev_cls(event.EventLinkAdd)
     def add_link(self,ev):
-        print "Link added", ev.link.src.dpid, "=>", ev.link.dst.dpid
-
         if ev.link.src.dpid in self.switch_graph:
             tmp = ev.link.src.port_no, ev.link.dst.dpid, ev.link.dst.port_no
             self.switch_graph[ev.link.src.dpid].append(tmp)
@@ -91,8 +88,6 @@ class Broadcast(app_manager.RyuApp):
 
     @set_ev_cls(event.EventLinkDelete)
     def remove_link(self,ev):
-        print "Link removed", ev.link.src.dpid, "=>", ev.link.dst.dpid
-
         if ev.link.src.dpid in self.switch_graph:
             tmp = ev.link.src.port_no, ev.link.dst.dpid, ev.link.dst.port_no
             self.switch_graph[ev.link.src.dpid] = filter(lambda x: x!=tmp,self.switch_graph[ev.link.src.dpid])
@@ -118,16 +113,12 @@ class Broadcast(app_manager.RyuApp):
 
     @set_ev_cls(event.EventPortAdd)
     def add_port(self,ev):
-        print "Port", ev.port.port_no, "added to switch", ev.port.dpid
-
         self.switch_ports[ev.port.dpid].append(ev.port.port_no)
 
         self.set_broadcast_tree()
 
     @set_ev_cls(event.EventPortDelete)
     def remove_port(self,ev):
-        print "Port", ev.port.port_no, "removed from switch", ev.port.dpid
-
         self.switch_ports[ev.port.dpid] = filter(lambda x: x!=ev.port.port_no, self.switch_ports[ev.port.dpid])
 
         self.set_broadcast_tree()
