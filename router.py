@@ -2,18 +2,17 @@ from ryu.base import app_manager
 from ryu.controller import ofp_event
 from ryu.controller.handler import CONFIG_DISPATCHER, MAIN_DISPATCHER
 from ryu.controller.handler import set_ev_cls
-from ryu.ofproto import ofproto_v1_3
+from ryu.ofproto import ofproto_v1_3 as ofproto
+from ryu.ofproto import ofproto_v1_3_parser as parser
 
-from ryu.topology import switches, event
+from ryu.topology import event as topo_event
 
-from ryu.lib.packet import packet
-from ryu.lib.packet import ethernet
-from ryu.lib.packet import ether_types
+from ryu.lib.packet import packet, ethernet, ether_types
 
 from collections import deque
 
 class Router(app_manager.RyuApp):
-    OFP_VERSIONS = [ofproto_v1_3.OFP_VERSION]
+    OFP_VERSIONS = [ofproto.OFP_VERSION]
 
     def __init__(self, *args, **kwargs):
         super(Router,self).__init__(self,*args,**kwargs)
@@ -37,19 +36,19 @@ class Router(app_manager.RyuApp):
         # dpid => {dpid => port}
         self.saved_bfs = {}
 
-    @set_ev_cls(event.EventSwitchEnter)
+    @set_ev_cls(topo_event.EventSwitchEnter)
     def add_switch(self,ev):
         if ev.switch.dp.id not in self.switches:
             self.switches[ev.switch.dp.id] = ev.switch.dp
             self.switch_graph[ev.switch.dp.id] = []
 
-    @set_ev_cls(event.EventSwitchLeave)
+    @set_ev_cls(topo_event.EventSwitchLeave)
     def remove_switch(self,ev):
         if ev.switch.dp.id in self.switches:
             del self.switches[ev.switch.dp.id]
             del self.switch_graph[ev.switch.dp.id]
 
-    @set_ev_cls(event.EventLinkAdd)
+    @set_ev_cls(topo_event.EventLinkAdd)
     def add_link(self,ev):
         if ev.link.src.dpid in self.switches:
             # Add the link src => dst
@@ -63,7 +62,7 @@ class Router(app_manager.RyuApp):
 
         self.saved_bfs.clear()
 
-    @set_ev_cls(event.EventLinkDelete)
+    @set_ev_cls(topo_event.EventLinkDelete)
     def remove_link(self,ev):
         if ev.link.src.dpid in self.switches:
             tmp = ev.link.dst.dpid, ev.link.dst.port_no
@@ -100,18 +99,18 @@ class Router(app_manager.RyuApp):
     def add_routes(self, datapath, local_port, mac):
         """ Add the routes to all switches when a new mac is learned """
         # Add the route to the switch the device is connected to
-        local_route = datapath.ofproto_parser.OFPFlowMod(
+        local_route = parser.OFPFlowMod(
                 datapath=datapath,
                 table_id=0,
                 priority=20,
                 cookie=1,
-                command=datapath.ofproto.OFPFC_ADD,
-                match=datapath.ofproto_parser.OFPMatch( eth_dst=mac ),
+                command=ofproto.OFPFC_ADD,
+                match=parser.OFPMatch( eth_dst=mac ),
                 instructions=[
-                    datapath.ofproto_parser.OFPInstructionGotoTable(1),
-                    datapath.ofproto_parser.OFPInstructionActions(
-                        type_=datapath.ofproto.OFPIT_WRITE_ACTIONS,
-                        actions=[datapath.ofproto_parser.OFPActionOutput(local_port)]
+                    parser.OFPInstructionGotoTable(1),
+                    parser.OFPInstructionActions(
+                        type_=ofproto.OFPIT_WRITE_ACTIONS,
+                        actions=[parser.OFPActionOutput(local_port)]
                     )
                 ]
         )
@@ -121,17 +120,17 @@ class Router(app_manager.RyuApp):
         bfs = self.breadth_first_search(datapath.id)
         for dpid,port in bfs.iteritems():
             dp = self.switches[dpid]
-            foreign_route = dp.ofproto_parser.OFPFlowMod(
+            foreign_route = parser.OFPFlowMod(
                     datapath=dp,
                     table_id=0,
                     priority=10,
                     cookie=1,
-                    command=dp.ofproto.OFPFC_ADD,
-                    match=dp.ofproto_parser.OFPMatch( eth_dst=mac ),
+                    command=ofproto.OFPFC_ADD,
+                    match=parser.OFPMatch( eth_dst=mac ),
                     instructions=[
-                        dp.ofproto_parser.OFPInstructionActions(
-                            type_=dp.ofproto.OFPIT_WRITE_ACTIONS,
-                            actions=[dp.ofproto_parser.OFPActionOutput(port)]
+                        parser.OFPInstructionActions(
+                            type_=ofproto.OFPIT_WRITE_ACTIONS,
+                            actions=[parser.OFPActionOutput(port)]
                         )
                     ]
             )
@@ -140,13 +139,13 @@ class Router(app_manager.RyuApp):
         # Add the route to table 1 so we don't get messages about
         # this mac address anymore
         for dp in self.switches.values():
-            block_route = dp.ofproto_parser.OFPFlowMod(
+            block_route = parser.OFPFlowMod(
                     datapath=dp,
                     table_id=1,
                     priority=20,
                     cookie=1,
-                    command=dp.ofproto.OFPFC_ADD,
-                    match=dp.ofproto_parser.OFPMatch( eth_src=mac ),
+                    command=ofproto.OFPFC_ADD,
+                    match=parser.OFPMatch( eth_src=mac ),
                     instructions=[]
             )
             dp.send_msg(block_route)

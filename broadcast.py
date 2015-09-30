@@ -3,7 +3,7 @@ from ryu.controller.handler import set_ev_cls
 from ryu.ofproto import ofproto_v1_3 as ofproto
 from ryu.ofproto import ofproto_v1_3_parser as parser
 
-from ryu.topology import event
+from ryu.topology import event as topo_event
 
 class Broadcast(app_manager.RyuApp):
     """
@@ -31,7 +31,7 @@ class Broadcast(app_manager.RyuApp):
         # dpid => class Datapath
         self.switches = {}
 
-    @set_ev_cls(event.EventSwitchEnter)
+    @set_ev_cls(topo_event.EventSwitchEnter)
     def add_switch(self,ev):
         # Make sure that the switch has a group with id 0
         # so all the times that we edit the broadcast group
@@ -50,7 +50,7 @@ class Broadcast(app_manager.RyuApp):
             self.switch_ports[ev.switch.dp.id].append(ev.switch.dp.ofproto.OFPP_NORMAL)
             self.switches[ev.switch.dp.id] = ev.switch.dp
 
-    @set_ev_cls(event.EventSwitchLeave)
+    @set_ev_cls(topo_event.EventSwitchLeave)
     def remove_switch(self,ev):
         if ev.switch.dp.id in self.switch_graph:
             del self.switch_graph[ev.switch.dp.id]
@@ -64,7 +64,7 @@ class Broadcast(app_manager.RyuApp):
 
             self.set_broadcast_tree()
 
-    @set_ev_cls(event.EventLinkAdd)
+    @set_ev_cls(topo_event.EventLinkAdd)
     def add_link(self,ev):
         if ev.link.src.dpid in self.switch_graph:
             tmp = ev.link.src.port_no, ev.link.dst.dpid, ev.link.dst.port_no
@@ -87,7 +87,7 @@ class Broadcast(app_manager.RyuApp):
         )
         self.switches[ev.link.src.dpid].send_msg(broadcast_rule)
 
-    @set_ev_cls(event.EventLinkDelete)
+    @set_ev_cls(topo_event.EventLinkDelete)
     def remove_link(self,ev):
         if ev.link.src.dpid in self.switch_graph:
             tmp = ev.link.src.port_no, ev.link.dst.dpid, ev.link.dst.port_no
@@ -112,13 +112,13 @@ class Broadcast(app_manager.RyuApp):
             )
             self.switches[ev.link.src.dpid].send_msg(broadcast_rule)
 
-    @set_ev_cls(event.EventPortAdd)
+    @set_ev_cls(topo_event.EventPortAdd)
     def add_port(self,ev):
         self.switch_ports[ev.port.dpid].append(ev.port.port_no)
 
         self.set_broadcast_tree()
 
-    @set_ev_cls(event.EventPortDelete)
+    @set_ev_cls(topo_event.EventPortDelete)
     def remove_port(self,ev):
         self.switch_ports[ev.port.dpid] = filter(lambda x: x!=ev.port.port_no, self.switch_ports[ev.port.dpid])
 
