@@ -1,5 +1,5 @@
 RYU_PATH=../ryu
-MODULES=init.py broadcast.py router.py port-security.py
+MODULES=init.py broadcast.py router.py
 FLAGS=--observe-links
 
 .PHONY: run

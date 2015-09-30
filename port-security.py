@@ -10,50 +10,62 @@ from pprint import pprint
 
 from ryu.base import app_manager
 from ryu.controller import ofp_event
-from ryu.controller.handler import CONFIG_DISPATCHER, MAIN_DISPATCHER
 from ryu.controller.handler import set_ev_cls
-from ryu.ofproto import ofproto_v1_3
+from ryu.ofproto import ofproto_v1_3 as ofproto
+from ryu.ofproto import ofproto_v1_3_parser as parser
+
+from ryu.topology import event as topo_event
+
+from ryu.lib.packet import packet, ethernet, ether_types
 
 class PortSecurity(app_manager.RyuApp):
-    OFP_VERSIONS = [ofproto_v1_3.OFP_VERSION]
+    OFP_VERSIONS = [ofproto.OFP_VERSION]
 
     def __init__(self, *args, **kwargs):
         super(PortSecurity,self).__init__(self,*args,**kwargs)
+
+        # A dictionary saving each mac to what switch and port
+        # it was seen on.
+        # mac => (dpid, port_no)
         self.port_to_mac = {}
 
-    @set_ev_cls(ofp_event.EventOFPPacketIn, MAIN_DISPATCHER)
+        self.port_to_hw_addr = {}
+
+    @set_ev_cls(topo_event.EventSwitchEnter)
+    def add_switch(self,ev):
+        for port in ev.switch.ports:
+            k = ev.switch.dp.id, port.port_no
+            self.port_to_hw_addr[k] = port.hw_addr
+
+    @set_ev_cls(ofp_event.EventOFPPacketIn)
     def new_packet(self, ev):
         """The handler of a PacketIn packet"""
         # Extract the ethernet headers
-        dst, src, ethernet_type = struct.unpack_from('!6s6sH', buffer(ev.msg.data), 0)
+        pck = packet.Packet(ev.msg.data)
+        eth = pck.get_protocol(ethernet.ethernet)
 
-        #pprint(ev)
+        # Ignore the LLDP packets send by topology discovery
+        if eth.ethertype == ether_types.ETH_TYPE_LLDP:
+            return
 
         # Make the key from the switch an port combination
         k = ev.msg.datapath.id, ev.msg.match['in_port']
 
         # If this is on a port not seen before add a new list
         if k not in self.port_to_mac:
-            self.port_to_mac[k] = [src]
+            self.port_to_mac[k] = [eth.src]
         # If this port is seen before see if the mac source is new
-        elif src not in self.port_to_mac[k]:
-            self.port_to_mac[k].append(src)
+        elif eth.src not in self.port_to_mac[k]:
+            self.port_to_mac[k].append(eth.src)
             # If there are now more than 8 mac addresses known for
             # this port shut it down
             if len(self.port_to_mac[k]) > 8:
                 print "Shutting down port", ev.msg.match['in_port'], "on switch", ev.msg.datapath.id
-                shutdown_port_msg = ev.msg.datapath.ofproto_parser.OFPPortMod(
-                        datapath = ev.msg.datapath,
-                        port_no = ev.msg.match['in_port'],
-                        config = (ev.msg.datapath.ofproto.OFPPC_PORT_DOWN | ev.msg.datapath.ofproto.OFPPC_NO_RECV),
+                shutdown_port_msg = parser.OFPPortMod(
+                        datapath=ev.msg.datapath,
+                        port_no=ev.msg.match['in_port'],
+                        hw_addr=self.port_to_hw_addr[k],
+                        config=(ofproto.OFPPC_PORT_DOWN | ofproto.OFPPC_NO_RECV | ofproto.OFPPC_NO_FWD),
+                        mask=(ofproto.OFPPC_PORT_DOWN | ofproto.OFPPC_NO_RECV | ofproto.OFPPC_NO_FWD)
                 )
                 ev.msg.datapath.send_msg(shutdown_port_msg)
-                #flow_mod_msg = ev.msg.datapath.ofproto_parser.OFPFlowMod(
-                #        datapath = ev.msg.datapath,
-                #        command = ev.msg.datapath.ofproto.OFPFC_ADD,
-                #        match = ev.msg.datapath.ofproto_parser.OFPMatch(
-                #            in_port = ev.msg.match['in_port']
-                #        ),
-                #        instructions = []
-                #)
-                #ev.msg.datapath.send_msg(flow_mod_msg)
