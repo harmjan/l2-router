@@ -46,8 +46,15 @@ class Broadcast(app_manager.RyuApp):
 
         if ev.switch.dp.id not in self.switch_graph:
             self.switch_graph[ev.switch.dp.id] = []
+
             self.switch_ports[ev.switch.dp.id] = [port.port_no for port in ev.switch.ports]
+            # An ugly hack to make broadcast work on the lab
+            # setup. Iterating over ev.switch.ports does not
+            # cover logical ports but those are used on the
+            # lab computer to generate the traffic. This needs
+            # to be removed for it to work in mininet.
             self.switch_ports[ev.switch.dp.id].append(ev.switch.dp.ofproto.OFPP_NORMAL)
+
             self.switches[ev.switch.dp.id] = ev.switch.dp
 
     @set_ev_cls(topo_event.EventSwitchLeave)
