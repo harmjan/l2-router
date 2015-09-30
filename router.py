@@ -128,6 +128,7 @@ class Router(app_manager.RyuApp):
                     command=ofproto.OFPFC_ADD,
                     match=parser.OFPMatch( eth_dst=mac ),
                     instructions=[
+                        parser.OFPInstructionGotoTable(1),
                         parser.OFPInstructionActions(
                             type_=ofproto.OFPIT_WRITE_ACTIONS,
                             actions=[parser.OFPActionOutput(port)]

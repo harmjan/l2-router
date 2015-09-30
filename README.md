@@ -13,7 +13,7 @@ Entry flow table, this flow table decides what port a packet should be send out 
 Priority | Amount | Module | Name | Match | Instructions
 ---------|--------|--------|------|-------|-------------
 20 | 1 per learned local mac | router.py | Locally learned mac forwarding rules | eth.dst == learned mac | goto-table(1) AND write-action(output port)
-10 | 1 per learned foreign mac | router.py | Foreign learned mac forwarding rules | eth.dst == learned mac | write-action(output port)
+10 | 1 per learned foreign mac | router.py | Foreign learned mac forwarding rules | eth.dst == learned mac | goto-table(1) AND write-action(output port)
 0  | 1 | init.py | Table miss entry | everything | goto-table(1) AND write-action(group 0)
 
 Second flow table, this flow table looks up if the source ethernet address is known so the packet isn't forwarded to the controller without containing new information. This ensures the controller only receives packets of which it doesn't know the ethernet address. A switch also shouldn't forward packets to the controller it received from other switches since the source port would be wrong.
