@@ -60,7 +60,7 @@ class Router(app_manager.RyuApp):
             tmp = ev.link.src.dpid, ev.link.src.port_no
             self.switch_graph[ev.link.dst.dpid].append(tmp)
 
-        self.saved_bfs.clear()
+        self.reset_routes()
 
     @set_ev_cls(topo_event.EventLinkDelete)
     def remove_link(self,ev):
@@ -72,7 +72,7 @@ class Router(app_manager.RyuApp):
             tmp = ev.link.src.dpid, ev.link.src.port_no
             self.switch_graph[ev.link.dst.dpid] = filter( lambda a: a!=tmp, self.switch_graph[ev.link.dst.dpid] )
 
-        self.saved_bfs.clear()
+        self.reset_routes()
 
     @set_ev_cls(ofp_event.EventOFPPacketIn, MAIN_DISPATCHER)
     def new_packet(self, ev):
@@ -96,6 +96,32 @@ class Router(app_manager.RyuApp):
             if port != ev.msg.match['in_port'] or dpid != ev.msg.datapath.id:
                 print "\tReceived known mac",eth.src,"on different port!"
 
+    def reset_routes(self):
+        """ Reset all the routes in stored in the switches """
+        # Delete the stored routing information
+        self.saved_bfs.clear()
+
+        # Delete all flows added based on mac information
+        for _, dp in self.switches.items():
+            for table in [0,1]:
+                delete_msg = parser.OFPFlowMod(
+                        datapath=dp,
+                        table_id=table,
+                        cookie=2,
+                        cookie_mask=2,
+                        command=ofproto.OFPFC_DELETE,
+                        out_port=ofproto.OFPP_ANY,
+                        out_group=ofproto.OFPG_ANY,
+                        match=parser.OFPMatch(),
+                        instructions=[]
+                )
+                dp.send_msg(delete_msg)
+
+        # Re-add all the already learned mac's with the new information
+        for mac, tmp in self.learned_macs.items():
+            dpid, in_port = tmp
+            self.add_routes(self.switches[dpid], in_port, mac)
+
     def add_routes(self, datapath, local_port, mac):
         """ Add the routes to all switches when a new mac is learned """
         # Add the route to the switch the device is connected to
@@ -103,7 +129,7 @@ class Router(app_manager.RyuApp):
                 datapath=datapath,
                 table_id=0,
                 priority=20,
-                cookie=1,
+                cookie=3,
                 command=ofproto.OFPFC_ADD,
                 match=parser.OFPMatch( eth_dst=mac ),
                 instructions=[
@@ -124,7 +150,7 @@ class Router(app_manager.RyuApp):
                     datapath=dp,
                     table_id=0,
                     priority=10,
-                    cookie=1,
+                    cookie=3,
                     command=ofproto.OFPFC_ADD,
                     match=parser.OFPMatch( eth_dst=mac ),
                     instructions=[
@@ -144,7 +170,7 @@ class Router(app_manager.RyuApp):
                     datapath=dp,
                     table_id=1,
                     priority=20,
-                    cookie=1,
+                    cookie=3,
                     command=ofproto.OFPFC_ADD,
                     match=parser.OFPMatch( eth_src=mac ),
                     instructions=[]
