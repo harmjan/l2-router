@@ -56,6 +56,8 @@ class Broadcast(app_manager.RyuApp):
             self.switch_ports[ev.switch.dp.id].append(ev.switch.dp.ofproto.OFPP_NORMAL)
 
             self.switches[ev.switch.dp.id] = ev.switch.dp
+        
+        self.set_broadcast_tree()
 
     @set_ev_cls(topo_event.EventSwitchLeave)
     def remove_switch(self,ev):
