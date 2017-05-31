@@ -53,10 +53,10 @@ class Broadcast(app_manager.RyuApp):
             # cover logical ports but those are used on the
             # lab computer to generate the traffic. This needs
             # to be removed for it to work in mininet.
-            self.switch_ports[ev.switch.dp.id].append(ev.switch.dp.ofproto.OFPP_NORMAL)
+            #self.switch_ports[ev.switch.dp.id].append(ev.switch.dp.ofproto.OFPP_NORMAL)
 
             self.switches[ev.switch.dp.id] = ev.switch.dp
-        
+
         self.set_broadcast_tree()
 
     @set_ev_cls(topo_event.EventSwitchLeave)
